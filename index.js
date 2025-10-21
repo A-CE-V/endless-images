@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import sharp from "sharp";
 import axios from "axios";
-import cors from "cors"; // <-- import cors
+import cors from "cors";
 
 
 const app = express();
@@ -10,17 +10,14 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 
-// POST /convert endpoint
 app.post("/convert", upload.single("image"), async (req, res) => {
   try {
     const format = req.query.format || "png";
     let imageBuffer;
 
     if (req.file) {
-      // If a file was uploaded
       imageBuffer = req.file.buffer;
     } else if (req.query.url) {
-      // If a URL was provided
       const response = await axios.get(req.query.url, { responseType: "arraybuffer" });
       imageBuffer = Buffer.from(response.data, "binary");
     } else {
