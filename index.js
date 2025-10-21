@@ -2,9 +2,13 @@ import express from "express";
 import multer from "multer";
 import sharp from "sharp";
 import axios from "axios";
+import cors from "cors"; // <-- import cors
+
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
+
+app.use(cors());
 
 // POST /convert endpoint
 app.post("/convert", upload.single("image"), async (req, res) => {
@@ -38,7 +42,7 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.send({ status: "Hi!", uptime: process.uptime() });
+  res.send({ status: "Endless Images Conversion Api", uptime: process.uptime() });
 });
 
 
