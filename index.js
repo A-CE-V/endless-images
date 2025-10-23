@@ -12,9 +12,20 @@ app.use(cors());
 
 app.post("/convert", upload.single("image"), async (req, res) => {
   try {
-    const format = req.query.format || "png";
-    let imageBuffer;
+    // Requested format from frontend
+    const requestedFormat = (req.body.format || req.query.format || "png").toLowerCase();
 
+    // Supported formats for output
+    const supportedFormats = ["jpeg", "png", "webp", "avif"];
+    let sharpFormat = requestedFormat === "jpg" ? "jpeg" : requestedFormat;
+
+    // Fallback for unsupported formats (GIF, SVG)
+    if (!supportedFormats.includes(sharpFormat)) {
+      sharpFormat = "png";
+    }
+
+    // Get the image buffer
+    let imageBuffer;
     if (req.file) {
       imageBuffer = req.file.buffer;
     } else if (req.query.url) {
@@ -24,15 +35,34 @@ app.post("/convert", upload.single("image"), async (req, res) => {
       return res.status(400).send({ error: "No file or URL provided" });
     }
 
-    const buffer = await sharp(imageBuffer).toFormat(format).toBuffer();
+    // Convert image with Sharp
+    const pipeline = sharp(imageBuffer, { density: 300 });
+    const convertedBuffer = await pipeline.toFormat(sharpFormat).toBuffer();
 
-    res.set("Content-Type", `image/${format}`);
-    res.send(buffer);
+    // Set proper MIME type
+    let contentType;
+    switch (sharpFormat) {
+      case "jpeg":
+        contentType = "image/jpeg"; break;
+      case "png":
+        contentType = "image/png"; break;
+      case "webp":
+        contentType = "image/webp"; break;
+      case "avif":
+        contentType = "image/avif"; break;
+      default:
+        contentType = "image/png";
+    }
+
+    res.set("Content-Type", contentType);
+    res.send(convertedBuffer);
+
   } catch (err) {
-    console.error(err);
-    res.status(500).send({ error: "Conversion failed" });
+    console.error("Error converting image:", err);
+    res.status(500).send({ error: "Conversion failed", details: err.message });
   }
 });
+
 
 app.get("/health", (req, res) => {
   res.send({ status: "OK", uptime: process.uptime() });
