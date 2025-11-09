@@ -7,11 +7,15 @@ import cors from "cors";
 import { verifyApiKey } from "./shared/apiKeyMiddleware.js";
 import { enforceLimit } from "./shared/rateLimit.js";
 import { priorityMiddleware } from "./shared/priorityQueue.js";
+import resetRouter from "./jobs/resetDailyLimit.js";
+
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
+
+app.use(resetRouter);
 
 /* ======================
    ROUTES
