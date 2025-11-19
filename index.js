@@ -4,9 +4,11 @@ import sharp from "sharp";
 import axios from "axios";
 import cors from "cors";
 
-import { verifyApiKey } from "./shared/apiKeyMiddleware.js";
-import { enforceLimit } from "./shared/rateLimit.js";
-import { priorityMiddleware } from "./shared/priorityQueue.js";
+// We only need the internal security key check now, as the Gateway handles auth, rate limits, and priority
+import { verifyInternalKey } from "./shared/apiKeyMiddleware.js";
+// Note: Removed imports for enforceLimit, priorityMiddleware, and verifyApiKey.
+
+// Keeping the reset router as requested for now
 import resetRouter from "./jobs/resetDailyLimit.js";
 
 
@@ -15,15 +17,14 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 
+// The reset router is kept outside the standard middleware chain
 app.use(resetRouter);
 
 /* ======================
-   ROUTES
+    ROUTES
 ====================== */
 app.post("/convert",
-  verifyApiKey,
-  priorityMiddleware,
-  (req, res, next) => enforceLimit(req, res, next, "conversion"),
+  verifyInternalKey, // MANDATORY: This ensures only the Gateway can access this endpoint
   upload.single("image"),
   async (req, res) => {
     try {
@@ -80,7 +81,7 @@ app.post("/convert",
 );
 
 /* ======================
-   STATUS ENDPOINTS
+    STATUS ENDPOINTS
 ====================== */
 app.get("/health", (req, res) => {
   res.send({ status: "OK", uptime: process.uptime() });
@@ -91,7 +92,7 @@ app.get("/", (req, res) => {
 });
 
 /* ======================
-   SERVER START
+    SERVER START
 ====================== */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Endless Images Conversion API now running on port ${PORT}`));
