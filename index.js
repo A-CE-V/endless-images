@@ -8,8 +8,6 @@ import cors from "cors";
 import { verifyInternalKey } from "./shared/apiKeyMiddleware.js";
 // Note: Removed imports for enforceLimit, priorityMiddleware, and verifyApiKey.
 
-// Keeping the reset router as requested for now
-import resetRouter from "./jobs/resetDailyLimit.js";
 
 
 const app = express();
@@ -18,7 +16,6 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 
 // The reset router is kept outside the standard middleware chain
-app.use(resetRouter);
 
 /* ======================
     ROUTES
