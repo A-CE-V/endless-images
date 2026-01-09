@@ -17,16 +17,43 @@ import cors from "cors";
  * 
  */
 import { verifyInternalKey } from "./shared/apiKeyMiddleware.js";
-
+import { Readable } from 'stream';
 
 
 const app = express();
 
+// --- FIXED RAW BODY COLLECTOR ---
 app.use((req, res, next) => {
   let data = [];
   req.on('data', chunk => data.push(chunk));
   req.on('end', () => {
-    req.rawBody = Buffer.concat(data);
+    const buffer = Buffer.concat(data);
+    req.rawBody = buffer; // We keep this for HMAC
+
+    // This is the magic part: We recreate the stream so Multer can read it!
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+      const readable = new Readable();
+      readable._read = () => {}; 
+      readable.push(buffer);
+      readable.push(null);
+      
+      // Replace the consumed req with our new readable stream
+      Object.assign(readable, {
+        headers: req.headers,
+        method: req.method,
+        url: req.url,
+        rawBody: buffer
+      });
+      
+      // Re-bind the stream to the request object
+      req.on = readable.on.bind(readable);
+      req.once = readable.once.bind(readable);
+      req.emit = readable.emit.bind(readable);
+      req.resume = readable.resume.bind(readable);
+      req.pause = readable.pause.bind(readable);
+      req.pipe = readable.pipe.bind(readable);
+      req.unpipe = readable.unpipe.bind(readable);
+    }
     next();
   });
 });
