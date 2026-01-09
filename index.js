@@ -21,15 +21,24 @@ import { verifyInternalKey } from "./shared/apiKeyMiddleware.js";
 
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
+
+app.use((req, res, next) => {
+  let data = [];
+  req.on('data', chunk => data.push(chunk));
+  req.on('end', () => {
+    req.rawBody = Buffer.concat(data);
+    next();
+  });
+});
 
 app.use(cors());
+app.use(express.json());
 
-app.use(express.json({
-  verify: (req, res, buf) => {
-    req.rawBody = buf; // Store the raw bytes for signature verification
-  }
-}));
+const upload = multer({ storage: multer.memoryStorage() });
+
+
+
+
 
 /* ======================
     ROUTES

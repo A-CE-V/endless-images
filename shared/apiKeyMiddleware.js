@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 
-// The secret must match the one in Cloudflare ENV
 const INTERNAL_SECRET = process.env.INTERNAL_API_KEY; 
 
 export function verifyInternalKey(req, res, next) {
@@ -8,53 +7,36 @@ export function verifyInternalKey(req, res, next) {
     const signature = req.headers['x-auth-signature'];
     const timestamp = req.headers['x-auth-timestamp'];
 
-    // 1. Missing Headers Check
-    if (!signature || !timestamp) {
-      return res.status(401).json({ error: "Missing auth headers" });
-    }
+    if (!signature || !timestamp) return res.status(401).json({ error: "Missing auth headers" });
 
-    // 2. Replay Attack Check (Time Window - 60s)
+    // 1. Replay Attack Check
     const now = Date.now();
-    const reqTime = parseInt(timestamp, 10);
-    if (Math.abs(now - reqTime) > 60000) {
+    if (Math.abs(now - parseInt(timestamp, 10)) > 60000) {
       return res.status(401).json({ error: "Request expired" });
     }
 
-    // 3. Reconstruct the Signature
+    // 2. Reconstruct the Signature
+    // We update HMAC with timestamp, then the rawBody we captured in index.js
     const hmac = crypto.createHmac('sha256', INTERNAL_SECRET);
     hmac.update(timestamp);
-
-    // --- CRITICAL PART FOR MULTER & JSON ---
-    // If it's a file upload, Multer puts the buffer in req.file.buffer
-    if (req.file && req.file.buffer) {
-        hmac.update(req.file.buffer);
-    } 
-    // If it's a standard JSON request (and you used the rawBody trick in app.js)
-    else if (req.rawBody) {
-        hmac.update(req.rawBody);
-    }
-    // Fallback: If body exists but no rawBody (rare if configured correctly)
-    else if (req.body && Object.keys(req.body).length > 0) {
-       // Note: This is risky if format differs from Gateway, but acts as fallback
-       // For simple JSON without files it usually works if stringified same way
-       // hmac.update(JSON.stringify(req.body)); 
+    
+    if (req.rawBody && req.rawBody.length > 0) {
+      hmac.update(req.rawBody);
     }
 
     const calculatedSignature = hmac.digest('hex');
 
-    // 4. Compare Signatures
-    const requestSigBuffer = Buffer.from(signature);
-    const calculatedSigBuffer = Buffer.from(calculatedSignature);
-
-    // Use timingSafeEqual to prevent timing attacks
-    if (requestSigBuffer.length !== calculatedSigBuffer.length || 
-        !crypto.timingSafeEqual(requestSigBuffer, calculatedSigBuffer)) {
+    // 3. Compare
+    if (signature !== calculatedSignature) {
+      // DEBUG LOG: This will show up in your Render logs
+      console.log(`SIG FAIL: Received ${signature.substring(0,6)}... vs Calculated ${calculatedSignature.substring(0,6)}...`);
+      console.log(`Secret length: ${INTERNAL_SECRET.length}`); 
       return res.status(401).json({ error: "Invalid Signature" });
     }
 
     next();
   } catch (err) {
     console.error("Auth Error", err);
-    return res.status(401).json({ error: "Authentication failed" });
+    res.status(401).json({ error: "Authentication failed" });
   }
 }
