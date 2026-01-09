@@ -4,9 +4,19 @@ import sharp from "sharp";
 import axios from "axios";
 import cors from "cors";
 
-// We only need the internal security key check now, as the Gateway handles auth, rate limits, and priority
+/**
+ * Commit V.3.0.0 - 2026-01-09
+ * 
+ * ------------------------------
+ *  Image Conversion Microservice
+ * ------------------------------
+ * Features:
+ *  - Converts images to various formats using Sharp
+ *  - Secured with HMAC authentication middleware [Added on this commit]
+ * 
+ * 
+ */
 import { verifyInternalKey } from "./shared/apiKeyMiddleware.js";
-// Note: Removed imports for enforceLimit, priorityMiddleware, and verifyApiKey.
 
 
 
@@ -15,14 +25,18 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 
-// The reset router is kept outside the standard middleware chain
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf; // Store the raw bytes for signature verification
+  }
+}));
 
 /* ======================
     ROUTES
 ====================== */
 app.post("/convert",
-  verifyInternalKey, // MANDATORY: This ensures only the Gateway can access this endpoint
   upload.single("image"),
+  verifyInternalKey,
   async (req, res) => {
     try {
       // Requested format from frontend
